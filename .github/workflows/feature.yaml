@@ -23,9 +23,9 @@ jobs:
       - name: Lint
         #run: golangci-lint run
         run: echo "Linting skipped in feature branch CI for faster feedback. Run golangci-lint locally before pushing to main."
-        
+
       - name: Unit tests
         run: go test ./...
 
       - name: Build check
-        run: go build ./cmd/server
+        run: go build .
