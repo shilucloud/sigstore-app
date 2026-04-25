@@ -1,0 +1,56 @@
+name: Pull Request CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  full-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: latest
+
+      - name: Unit tests
+        run: go test ./...
+
+      - name: SAST - govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+      - name: Build image (local only, no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false        # image stays local, never touches registry
+          load: true
+          tags: myapp:pr-test
+
+      - name: Vulnerability scan - trivy
+        uses: aquasecurity/trivy-action@v0.4.0
+        with:
+          image-ref: myapp:pr-test
+          format: 'table'
+          exit-code: '1'  # fail if vulnerabilities found
+          severity: 'CRITICAL,HIGH'
+
+      - name: Test image health endpoint
+        run: |
+          docker run -d --name pr-test -p 8080:8080 \
+            -e APP_ENV=test \
+            -e APP_VERSION=pr-test \
+            myapp:pr-test
+          sleep 2
+          curl --fail http://localhost:8080/health
+          docker stop pr-test
