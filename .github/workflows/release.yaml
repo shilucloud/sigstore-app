@@ -84,6 +84,11 @@ jobs:
       - name: Smoke test staging
         run: echo "Run real smoke tests here"
 
+      - name: Update prod image tag
+        run: |
+          cd gitops/apps/overlays/prod
+          kustomize edit set image shilucloud/sigstore-app=docker.io/shilucloud/sigstore-app:${{ github.ref_name }}
+
       - name: Open prod promotion PR
         uses: peter-evans/create-pull-request@v6
         with:
