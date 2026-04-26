@@ -64,7 +64,7 @@ jobs:
       - name: Update dev image tag
         run: |
           cd gitops/apps/overlays/dev
-          kustomize edit set image sigstore-app=docker.io/shilucloud/sigstore-app:main-${{ github.sha }}
+          kustomize edit set image shilucloud/sigstore-app=docker.io/shilucloud/sigstore-app:main-${{ github.sha }}
 
       - name: Commit and push to gitops repo
         run: |

@@ -60,7 +60,7 @@ jobs:
       - name: Update staging image tag
         run: |
           cd gitops/overlays/staging
-          kustomize edit set image sigstore-app=docker.io/shilucloud/sigstore-app:${{ github.ref_name }}
+          kustomize edit set image shilucloud/sigstore-app=docker.io/shilucloud/sigstore-app:${{ github.ref_name }}
 
       - name: Commit staging promotion
         run: |
