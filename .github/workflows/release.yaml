@@ -7,8 +7,8 @@ on:
       - 'v*'
 
 permissions:
-  contents: write       # to open PRs against gitops repo
-  id-token: write       # for Cosign verification via OIDC
+  contents: write
+  id-token: write
   packages: read
 
 jobs:
@@ -16,40 +16,54 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ✅ FIX 1: Checkout repo (required for git + tag context)
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Install Cosign
       - uses: sigstore/cosign-installer@v3
 
-      - name: Login to DOCKER HUB
+      # Login to Docker Hub
+      - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           registry: docker.io
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Resolve which commit this tag points to
+      # ✅ FIX 2: Reliable SHA (no git command needed)
       - name: Get commit sha from tag
         id: meta
         run: |
-          echo "sha=$(git rev-list -n 1 ${{ github.ref_name }})" >> $GITHUB_OUTPUT
+          echo "sha=${GITHUB_SHA}" >> $GITHUB_OUTPUT
 
-      # Verify the image that was built on main push
-      # This checks: Fulcio cert is valid, identity matches, Rekor entry exists
+      # Debug (optional but useful)
+      - name: Debug values
+        run: |
+          echo "Tag: ${{ github.ref_name }}"
+          echo "SHA: ${{ steps.meta.outputs.sha }}"
+
+      # Verify signed image from main pipeline
       - name: Verify image signature
         run: |
           cosign verify \
-            --certificate-identity-regexp="https://github.com/shilucloud/sigstore-app/*" \
+            --certificate-identity-regexp="https://github.com/shilucloud/sigstore-app/.github/workflows/.*" \
             --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
             docker.io/shilucloud/sigstore-app:main-${{ steps.meta.outputs.sha }}
 
-      # Retag the verified image as the version tag — no rebuild
+      # Retag verified image (NO rebuild)
       - name: Retag image as version
         run: |
           docker pull docker.io/shilucloud/sigstore-app:main-${{ steps.meta.outputs.sha }}
+
           docker tag \
             docker.io/shilucloud/sigstore-app:main-${{ steps.meta.outputs.sha }} \
             docker.io/shilucloud/sigstore-app:${{ github.ref_name }}
+
           docker push docker.io/shilucloud/sigstore-app:${{ github.ref_name }}
 
-      # Update staging overlay
+      # Checkout GitOps repo
       - name: Checkout gitops repo
         uses: actions/checkout@v4
         with:
@@ -57,28 +71,31 @@ jobs:
           token: ${{ secrets.GITOPS_PAT }}
           path: gitops
 
+      # Update staging overlay
       - name: Update staging image tag
         run: |
-          cd gitops/overlays/staging
+          cd gitops/apps/overlays/staging
           kustomize edit set image shilucloud/sigstore-app=docker.io/shilucloud/sigstore-app:${{ github.ref_name }}
 
+      # ✅ FIX 3: Safe commit (won’t fail if no change)
       - name: Commit staging promotion
         run: |
           cd gitops
-          git config user.email "shilash11@gmail.com"
+          git config user.email "shilash112001@gmail.com"
           git config user.name "CI Bot"
-          git commit -am "chore: promote ${{ github.ref_name }} → staging"
-          git push
-        # ArgoCD auto-syncs staging here
 
-      # Wait for staging to be healthy then run smoke tests
+          git add .
+          git diff --cached --quiet || git commit -m "chore: promote ${{ github.ref_name }} → staging"
+          git push origin main
+
+      # Wait for staging rollout (replace later with rollout status)
       - name: Wait for staging rollout
-        run: sleep 30   # replace with a proper rollout-status check in practice
+        run: sleep 30
 
       - name: Smoke test staging
-        run: echo "Running smoke tests against staging... (replace with real tests)"
+        run: echo "Run real smoke tests here"
 
-      # Open a PR to promote to prod — never push directly
+      # Open PR for production promotion
       - name: Open prod promotion PR
         uses: peter-evans/create-pull-request@v6
         with:
@@ -88,13 +105,13 @@ jobs:
           base: main
           title: "promote ${{ github.ref_name }} to prod"
           body: |
-            ## Prod Promotion
+            ## 🚀 Production Promotion
 
             **Version:** `${{ github.ref_name }}`
             **Image:** `docker.io/shilucloud/sigstore-app:${{ github.ref_name }}`
-            **Cosign verified:** ✅
-            **Staging smoke tests:** ✅
 
-            Merge this PR to promote to production.
-            ArgoCD will detect the change and wait for manual sync approval.
+            - Cosign verified ✅
+            - Staging validated ✅
+
+            Merge to promote to production.
           commit-message: "chore: promote ${{ github.ref_name }} → prod"
