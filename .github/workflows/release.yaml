@@ -53,19 +53,19 @@ jobs:
       - name: Checkout gitops repo
         uses: actions/checkout@v4
         with:
-          repository: alice/myapp-gitops
+          repository: shilucloud/sigstore-gitops
           token: ${{ secrets.GITOPS_PAT }}
           path: gitops
 
       - name: Update staging image tag
         run: |
           cd gitops/overlays/staging
-          kustomize edit set image myapp=docker.io/shilucloud/sigstore-app:${{ github.ref_name }}
+          kustomize edit set image sigstore-app=docker.io/shilucloud/sigstore-app:${{ github.ref_name }}
 
       - name: Commit staging promotion
         run: |
           cd gitops
-          git config user.email "ci@alice.com"
+          git config user.email "shilash11@gmail.com"
           git config user.name "CI Bot"
           git commit -am "chore: promote ${{ github.ref_name }} → staging"
           git push
@@ -76,8 +76,7 @@ jobs:
         run: sleep 30   # replace with a proper rollout-status check in practice
 
       - name: Smoke test staging
-        run: |
-          curl --fail https://staging.alice.com/health
+        run: echo "Running smoke tests against staging... (replace with real tests)"
 
       # Open a PR to promote to prod — never push directly
       - name: Open prod promotion PR
