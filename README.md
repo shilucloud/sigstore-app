@@ -1,5 +1,7 @@
 # sigstore-app
 
+![Pipeline Overview](.github/assets/sigstore-app-readme-image.png)
+
 A minimal Go HTTP server demonstrating a secure software delivery pipeline using Sigstore (Cosign + Fulcio + Rekor) and GitOps with ArgoCD.
 
 ---
