@@ -17,7 +17,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(HealthResponse{
 		Status:  "ok",
-		Version: os.Getenv("APP_VERSION"),
+		Version: "v0.0.1",
 		Env:     os.Getenv("APP_ENV"),
 	})
 }
